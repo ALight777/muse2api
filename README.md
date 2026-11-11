@@ -335,6 +335,30 @@ curl -X POST "http://localhost:18610/v1/images/edits" \
     }'
   ```
 
+  **实验性首尾帧引导（本 fork）**：JSON 请求可使用 `first_frame`、`last_frame`，
+  各接收一张图片的公网 URL、Data URL、Base64 或 `{"url": "..."}`。
+  可以同时提供，也可以只提供首帧或尾帧；不能与 `image`、`image_url`、
+  `reference_image`、`images`、`videos`、`audios`、`files` 混用。
+
+  ```json
+  {
+    "model": "muse-video",
+    "prompt": "保持人物和场景一致，从起始姿势自然运动到结束姿势，固定机位。",
+    "first_frame": {"url": "https://example.com/start.png"},
+    "last_frame": {"url": "https://example.com/end.png"},
+    "duration": 5,
+    "size": "16:9"
+  }
+  ```
+
+  该实现按顺序上传图片，并明确指示首帧和尾帧的用途；**不是原生锁帧接口，
+  不保证生成视频精确匹配指定的第一帧或最后一帧**。任务受理及轮询结果会返回
+  `frame_control: {"method": "prompt", "first_frame": true, "last_frame": true,
+  "exact_match_guaranteed": false}`（布尔值随实际输入变化）。
+  普通单图、多图和文生视频请求保持原有行为。当前新增字段仅支持 JSON；
+  客户端、中转网关需要显式传递这些字段，不能仅把两张图塞进 `images` 后假定等效。
+  离线验证：`python tests/test_video_frames.py`。实际首尾帧效果须另行检查成片。
+
 - **第二步：轮询任务进度**
   ```bash
   curl "http://localhost:18610/v1/videos/task_xyz789" \

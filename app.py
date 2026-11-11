@@ -52,7 +52,8 @@ from config import CFG
 from engine import (ESSENTIAL_COOKIES, MAX_REFERENCE_IMAGE_BYTES,
                     MAX_REFERENCE_IMAGES, MAX_REFERENCE_TOTAL_BYTES,
                     REFERENCE_MIME_EXT, MuseAuthError, MuseEngine, MuseGenerationError,
-                    MuseModelRefusalError, RefImageSafetyError, reference_kind)
+                    MuseModelRefusalError, RefImageSafetyError, reference_kind,
+                    _sniff_mime)
 from engine import MuseProxyError
 from store import Store, account_expiry, min_expiry
 from proxy import normalize_server, request_proxy_context, split_proxy_url
@@ -503,6 +504,12 @@ class VideoRequest(BaseModel):
     files: list | None = None
     image_url: Any = None
     reference_image: str | None = None
+    first_frame: Any = Field(default=None, description=(
+        "Experimental opening-frame image reference. Applied through ordered "
+        "attachments and prompt instructions, not a native frame-lock parameter."))
+    last_frame: Any = Field(default=None, description=(
+        "Experimental ending-frame image reference. Exact endpoint matching is "
+        "not guaranteed. Cannot be mixed with legacy or generic reference fields."))
 
 
 class ChatMessage(BaseModel):
@@ -670,6 +677,20 @@ def _image_references(req: ImageRequest) -> list[str]:
 
 
 def _video_references(req: VideoRequest) -> list[str]:
+    if req.first_frame is not None or req.last_frame is not None:
+        if (any(value is not None for value in
+                (req.reference_image, req.image_url, req.image))
+                or any((req.images, req.videos, req.audios, req.files))):
+            raise HTTPException(400, "first_frame / last_frame 不能与其他参考素材字段混用")
+        refs = []
+        for name in ("first_frame", "last_frame"):
+            value = getattr(req, name)
+            if value is not None:
+                ref = _image_value(value)
+                if not ref:
+                    raise HTTPException(400, f"{name} 不是有效图片引用")
+                refs.append(ref)
+        return refs
     return _reference_list(
         req.images, [req.reference_image, req.image_url, req.image], "images",
         _extra_media(req))
@@ -946,7 +967,20 @@ def build_video_prompt(r: VideoRequest, kinds: list[str] | None = None) -> str:
     refs = _video_references(r)
     has_ref = bool(refs)
     kinds = kinds or ["image"] * len(refs)
-    if any(k != "image" for k in kinds):
+    if r.first_frame is not None or r.last_frame is not None:
+        roles = []
+        if r.first_frame is not None:
+            roles.append("[图1] 是视频的首帧：开头画面应与它一致")
+        if r.last_frame is not None:
+            index = 2 if r.first_frame is not None else 1
+            roles.append(f"[图{index}] 是视频的尾帧：结束画面应与它一致，不能把它当作首帧或普通风格参考")
+        reference_instruction = (
+            f"根据本次上传的图片生成一个连续镜头的视频（{_reference_legend(kinds)}；"
+            + "；".join(roles)
+            + "；保持主体身份、形状、颜色和场景一致，在起止状态之间生成自然连续的运动。"
+            "只使用本次附件，保留首尾图片的顺序和用途。直接使用视频生成工具，"
+            "不要用剪辑、静态图片拼接、叠图或交叉淡化来伪造首尾帧匹配）")
+    elif any(k != "image" for k in kinds):
         # 不再默认「第一张图作起始画面」：实测会把模型拉回图片场景、忽略参考视频
         reference_instruction = (
             f"基于我本次上传的参考素材（{_describe_kinds(kinds)}）生成视频"
@@ -1454,10 +1488,26 @@ async def create_video(req: VideoRequest, _=Depends(auth)):
     ref_images = await asyncio.to_thread(
         _prepare_reference_images, _video_references(req))
 
-    prompt = build_video_prompt(req, _reference_kinds(ref_images))
+    kinds = _reference_kinds(ref_images)
+    frame_control = None
+    if req.first_frame is not None or req.last_frame is not None:
+        names = [name for name in ("first_frame", "last_frame")
+                 if getattr(req, name) is not None]
+        for index, (name, kind) in enumerate(zip(names, kinds)):
+            payload = ref_images[index].partition(",")[2]
+            actual_mime = _sniff_mime(base64.b64decode(payload[:128], validate=True))
+            if kind != "image" or not (actual_mime or "").startswith("image/"):
+                raise HTTPException(400, f"{name} 必须是图片，不能使用视频、音频或文档")
+            ref_images[index] = f"data:{actual_mime};base64,{payload}"
+        frame_control = {"method": "prompt", "first_frame": req.first_frame is not None,
+                         "last_frame": req.last_frame is not None,
+                         "exact_match_guaranteed": False}
+    prompt = build_video_prompt(req, kinds)
     timeout = req.timeout or CFG.video_timeout
     task = store.create_task("video", req.prompt)
     store.update_task(task["id"], api_prompt=prompt)
+    if frame_control is not None:
+        store.update_task(task["id"], frame_control=frame_control)
 
     store.update_task(task["id"], progress=10)
 
@@ -1485,7 +1535,8 @@ async def create_video(req: VideoRequest, _=Depends(auth)):
 
     threading.Thread(target=worker, daemon=True).start()
     return {"id": task["id"], "task_id": task["id"], "object": "video.task", "status": "queued",
-            "progress": 10, "created_at": task["created_at"]}
+            "progress": 10, "created_at": task["created_at"],
+            **({"frame_control": frame_control} if frame_control is not None else {})}
 
 
 @app.get("/v1/videos/{task_id}")
