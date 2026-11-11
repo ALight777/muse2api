@@ -64,6 +64,8 @@ class FrameApiTests(unittest.IsolatedAsyncioTestCase):
         self.assertIn("[图1] 是视频的首帧", prompt)
         self.assertIn("[图2] 是视频的尾帧", prompt)
         self.assertNotIn("其余图片作为主体、场景与风格参考", prompt)
+        self.assertNotIn("形状、颜色和场景一致", prompt)
+        self.assertIn("按尾帧改变需要变化的外观、姿态或位置", prompt)
         self.assertEqual(response["frame_control"], task["frame_control"])
         self.assertEqual(task["frame_control"], {"method": "prompt", "first_frame": True,
                                                "last_frame": True, "exact_match_guaranteed": False})

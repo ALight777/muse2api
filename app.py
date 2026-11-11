@@ -977,7 +977,8 @@ def build_video_prompt(r: VideoRequest, kinds: list[str] | None = None) -> str:
         reference_instruction = (
             f"根据本次上传的图片生成一个连续镜头的视频（{_reference_legend(kinds)}；"
             + "；".join(roles)
-            + "；保持主体身份、形状、颜色和场景一致，在起止状态之间生成自然连续的运动。"
+            + "；保持首尾图中共有的主体和场景特征，按尾帧改变需要变化的外观、姿态或位置，"
+            "在起止状态之间生成自然连续的变化。"
             "只使用本次附件，保留首尾图片的顺序和用途。直接使用视频生成工具，"
             "不要用剪辑、静态图片拼接、叠图或交叉淡化来伪造首尾帧匹配）")
     elif any(k != "image" for k in kinds):
