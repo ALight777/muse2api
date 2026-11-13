@@ -63,3 +63,5 @@ Thumbs.db
 
 # Persisted concurrency configuration
 data/scheduler.json
+# Independent generation queue settings
+data/generation-queue.json
