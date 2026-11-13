@@ -27,7 +27,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # 复制代码与必要目录
-COPY admin.html app.py cdp.py config.py engine.py store.py proxy.py scheduler.py version.json generation_timing.py ./
+COPY admin.html app.py cdp.py config.py engine.py store.py proxy.py scheduler.py version.json generation_timing.py video_health.py ./
 COPY deploy/ ./deploy/
 COPY extension/ ./extension/
 COPY tools/ ./tools/
