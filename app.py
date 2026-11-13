@@ -1941,6 +1941,13 @@ def list_accounts(_=Depends(auth)):
 @app.post("/admin/accounts")
 def add_account(req: AccountRequest, _=Depends(auth)):
     proxy = req.proxy.configuration() if req.proxy else None
+    default_file = os.environ.get("MUSE2API_DEFAULT_PROXY_FILE", "")
+    if "proxy" not in req.model_fields_set and default_file:
+        try:
+            with open(default_file) as f:
+                proxy = AccountProxy.model_validate(json.load(f)).configuration()
+        except Exception:
+            raise HTTPException(500, "默认代理配置无效，请检查服务端配置") from None
     added: list[dict] = []
     seen: list[dict] = []          # 本次导入的所有 cookie，用来检查核心项是否齐全
 

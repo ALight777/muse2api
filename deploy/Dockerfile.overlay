@@ -1,0 +1,13 @@
+# Reuse an already validated Muse2API runtime (Chromium, FFmpeg and dependencies).
+# docker build -f deploy/Dockerfile.overlay --build-arg BASE_IMAGE=<runtime-image> \
+#   --build-arg BUILD_SHA=$(git rev-parse HEAD) -t <new-image> .
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+ARG BUILD_SHA
+ENV MUSE2API_BUILD_SHA=$BUILD_SHA
+LABEL org.opencontainers.image.revision=$BUILD_SHA
+WORKDIR /app
+COPY admin.html app.py cdp.py config.py engine.py store.py proxy.py scheduler.py generation_timing.py video_health.py thumbnails.py version.json ./
+COPY deploy/ ./deploy/
+COPY extension/ ./extension/
+COPY tools/ ./tools/
