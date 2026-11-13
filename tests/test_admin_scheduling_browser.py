@@ -23,33 +23,36 @@ with tempfile.TemporaryDirectory(prefix='muse-scheduling-ui-') as home:
             deadline=time.monotonic()+10
             while time.monotonic()<deadline:
                 try:
-                    if page.js(expression):return
+                    if page.js(expression) is True:return
                 except Exception:pass
                 time.sleep(.1)
+            print('UI_STATE', page.js("JSON.stringify({language:typeof LANG==='undefined'?null:LANG,service:document.querySelector('#pSvc')?.textContent,scheduler:document.querySelector('#schedulerSummary')?.textContent})"),flush=True)
             raise AssertionError('UI did not reach expected state: '+expression)
         page.send('Page.navigate',{'url':f'http://127.0.0.1:{port}'})
         wait("!!document.querySelector('#key')")
+        page.js("setLang('zh')")
+        wait("typeof LANG !== 'undefined' && LANG === 'zh' && !!document.querySelector('#key')")
         page.js("document.querySelector('#key').value='qa-only';saveKey()")
         wait("document.querySelector('#schedulerSummary').textContent.includes('可用账号 5')")
-        page.js("(async()=>{document.querySelector('#schedulerMode').value='auto';document.querySelector('#schedulerAuto').value='3';await saveScheduler();return true})()")
+        page.js("(async()=>{document.querySelector('#schedulerMode').value='auto';document.querySelector('#schedulerAuto').value='3';await saveScheduler();return true})()", await_promise=True)
         wait("document.querySelector('#schedulerSummary').textContent.includes('生效上限 3')")
-        page.js("(async()=>{document.querySelector('#generationQueueTimeout').value='0';await saveGenerationQueue();return true})()")
-        page.js("(async()=>{document.querySelector('#videoHealthSeconds').value='0';await saveVideoHealth();return true})()")
+        page.js("(async()=>{document.querySelector('#generationQueueTimeout').value='0';await saveGenerationQueue();return true})()", await_promise=True)
+        page.js("(async()=>{document.querySelector('#videoHealthSeconds').value='0';await saveVideoHealth();return true})()", await_promise=True)
         wait("document.querySelector('#videoHealthSummary').textContent.includes('5')")
         page.send('Page.reload',{})
         wait("document.querySelector('#schedulerMode').value==='auto' && document.querySelector('#generationQueueTimeout').value==='0' && document.querySelector('#videoHealthSeconds').value==='0'")
-        page.js("(async()=>{document.querySelector('#videoHealthSeconds').value='900';await saveVideoHealth();return true})()")
+        page.js("(async()=>{document.querySelector('#videoHealthSeconds').value='900';await saveVideoHealth();return true})()", await_promise=True)
         wait("!!document.querySelector('#videoCooldowns button')")
         page.js("document.querySelector('#videoCooldowns button').click()")
         wait("document.querySelector('#videoHealthSummary').textContent.includes('5') && !document.querySelector('#videoCooldowns button')")
-        page.js("(async()=>{document.querySelector('#schedulerMode').value='manual';document.querySelector('#schedulerManual').value='2';await saveScheduler();return true})()")
+        page.js("(async()=>{document.querySelector('#schedulerMode').value='manual';document.querySelector('#schedulerManual').value='2';await saveScheduler();return true})()", await_promise=True)
         wait("document.querySelector('#schedulerSummary').textContent.includes('生效上限 2')")
         page.js('toggleRepoPanel()');wait("document.querySelector('#btnRepoPull').disabled")
         page.js("document.querySelector('#langSel').value='en';setLang('en')")
         wait("document.querySelector('#schedulerPanel').innerText.includes('Concurrency mode')")
         out=Path(os.environ.get('QA_ARTIFACT_DIR',home));out.mkdir(parents=True,exist_ok=True)
         page.js("document.querySelector('#schedulerPanel').scrollIntoView({block:'start'})")
-        (out/'scheduler-integrated.png').write_bytes(base64.b64decode(page.send('Page.captureScreenshot',{'format':'png'})['data']))
+        (out/'scheduler-integrated.png').write_bytes(base64.b64decode(page.send('Page.captureScreenshot',{'format':'png'})['result']['data']))
         print('PASS: all three independent panels save, persist across reload, update routing state, reset cooldown and retain managed-version controls in Chinese/English')
     finally:
         engine.stop();server.terminate()
