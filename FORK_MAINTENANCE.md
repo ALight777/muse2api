@@ -10,9 +10,10 @@ Current upstream base: `b60f474` (v1.6.10, including the scoped composer Send fi
 | Independent queue/generation budgets | `a8fb376` | `a838b07` | [PR #55](https://github.com/czg86389-hub/muse2api/pull/55) — open |
 | Video refusal cooldown | `ca16eb7` | `5647ee4` | [PR #56](https://github.com/czg86389-hub/muse2api/pull/56) — open |
 | Accurate versions and explicit updates | `193133f` | `79d80f8` | [PR #57](https://github.com/czg86389-hub/muse2api/pull/57) — open |
+| Cookie import from the active regular/incognito window | `db62b45` | `74b46fe` | [PR #58](https://github.com/czg86389-hub/muse2api/pull/58) — open |
 | Lazy media thumbnails | `f3f3db0` | retained in integration history | [PR #51](https://github.com/czg86389-hub/muse2api/pull/51) |
 
-The optional default proxy file and runtime-overlay build recipe are deployment customizations, separate from these four PRs. Proxy credentials and account data never belong in Git.
+The optional default proxy file and runtime-overlay build recipe are deployment customizations, separate from these PRs. Proxy credentials and account data never belong in Git.
 
 ## Updating after partial upstream acceptance
 
