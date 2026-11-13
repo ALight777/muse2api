@@ -1,3 +1,5 @@
+> ALight 集成版：每项优化独立提交并独立向上游提 PR。更新与部分采纳的维护方式见 [FORK_MAINTENANCE.md](FORK_MAINTENANCE.md)。
+
 # MUSE2API
 
 <p align="center">
